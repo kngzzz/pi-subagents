@@ -200,11 +200,56 @@ function foregroundStatusResult(control: SubagentState["foregroundControls"] ext
 	const activity = formatForegroundActivity(control);
 	const lines = [
 		`Run: ${control.runId}`,
+		"Source: foreground",
 		"State: running",
 		`Mode: ${control.mode}`,
 		control.currentAgent ? `Current: ${control.currentAgent}${control.currentIndex !== undefined ? ` step ${control.currentIndex + 1}` : ""}` : undefined,
 		activity ? `Activity: ${activity}` : undefined,
 	].filter((line): line is string => Boolean(line));
+	return { content: [{ type: "text", text: lines.join("\n") }], details: { mode: "management", results: [] } };
+}
+
+function resolveRememberedForegroundRun(state: SubagentState, requested: string): { run?: NonNullable<SubagentState["foregroundRuns"]> extends Map<string, infer T> ? T : never; error?: string } {
+	const runs = state.foregroundRuns;
+	if (!runs?.size) return {};
+	const direct = runs.get(requested);
+	const matches = direct ? [direct] : [...runs.values()].filter((run) => run.runId.startsWith(requested));
+	if (matches.length > 1) {
+		return { error: `Ambiguous foreground run id prefix '${requested}' matched: ${matches.map((run) => run.runId).join(", ")}. Provide a longer id.` };
+	}
+	return { run: matches[0] };
+}
+
+function aggregateRememberedForegroundState(run: NonNullable<SubagentState["foregroundRuns"]> extends Map<string, infer T> ? T : never): "complete" | "failed" | "paused" | "detached" {
+	const statuses = run.children.map((child) => child.status);
+	if (statuses.includes("failed")) return "failed";
+	if (statuses.includes("paused")) return "paused";
+	if (statuses.length > 0 && statuses.every((status) => status === "detached")) return "detached";
+	return "complete";
+}
+
+function foregroundRunResumeGuidance(run: NonNullable<SubagentState["foregroundRuns"]> extends Map<string, infer T> ? T : never): string {
+	const withSession = run.children.find((child) => child.sessionFile && fs.existsSync(child.sessionFile));
+	if (!withSession) return "Resume: unavailable; no child session file was persisted.";
+	if (run.children.length === 1) {
+		return `Revive: subagent({ action: "resume", id: "${run.runId}", message: "..." })`;
+	}
+	return `Revive child: subagent({ action: "resume", id: "${run.runId}", index: ${withSession.index}, message: "..." })`;
+}
+
+function rememberedForegroundStatusResult(run: NonNullable<SubagentState["foregroundRuns"]> extends Map<string, infer T> ? T : never): AgentToolResult<Details> {
+	const lines = [
+		`Run: ${run.runId}`,
+		"Source: foreground",
+		`State: ${aggregateRememberedForegroundState(run)}`,
+		`Mode: ${run.mode}`,
+		`Cwd: ${run.cwd}`,
+	];
+	for (const child of run.children) {
+		lines.push(`Step ${child.index + 1}: ${child.agent} ${child.status}`);
+		if (child.sessionFile) lines.push(`  Session: ${child.sessionFile}`);
+	}
+	lines.push(foregroundRunResumeGuidance(run));
 	return { content: [{ type: "text", text: lines.join("\n") }], details: { mode: "management", results: [] } };
 }
 
@@ -2013,8 +2058,20 @@ export function createSubagentExecutor(deps: ExecutorDeps): {
 				};
 			}
 			if (params.action === "status") {
-				const foreground = getForegroundControl(deps.state, paramsWithResolvedCwd.id ?? paramsWithResolvedCwd.runId);
+				const requestedRunId = paramsWithResolvedCwd.id ?? paramsWithResolvedCwd.runId;
+				const foreground = getForegroundControl(deps.state, requestedRunId);
 				if (foreground) return foregroundStatusResult(foreground);
+				if (requestedRunId) {
+					const remembered = resolveRememberedForegroundRun(deps.state, requestedRunId);
+					if (remembered.error) {
+						return {
+							content: [{ type: "text", text: remembered.error }],
+							isError: true,
+							details: { mode: "management", results: [] },
+						};
+					}
+					if (remembered.run) return rememberedForegroundStatusResult(remembered.run);
+				}
 				return inspectSubagentStatus(paramsWithResolvedCwd);
 			}
 			if (params.action === "resume") {

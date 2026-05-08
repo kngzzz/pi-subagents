@@ -516,6 +516,36 @@ describe("intercom result delivery cutover", { skip: !available ? "executor not 
 		assert.doesNotMatch(resumed.content[0]?.text ?? "", /revive only/);
 	});
 
+	it("status action reports remembered completed foreground runs instead of falling through to async status", async () => {
+		const runId = `foreground-status-${Date.now()}`;
+		const sessionFile = path.join(tempDir, "foreground-status.jsonl");
+		fs.writeFileSync(sessionFile, "", "utf-8");
+		const { executor, state } = makeExecutor({ bridgeMode: "off", agents: [makeAgent("a")] });
+		state.foregroundRuns.set(runId, {
+			runId,
+			mode: "single",
+			cwd: tempDir,
+			updatedAt: Date.now(),
+			children: [{ agent: "a", index: 0, status: "completed", sessionFile }],
+		});
+
+		const result = await executor.execute(
+			"foreground-status",
+			{ action: "status", id: runId.slice(0, "foreground-status".length) },
+			new AbortController().signal,
+			undefined,
+			makeMinimalCtx(tempDir),
+		);
+
+		const text = result.content[0]?.text ?? "";
+		assert.equal(result.isError, undefined);
+		assert.match(text, /Source: foreground/);
+		assert.match(text, /State: complete/);
+		assert.match(text, /Step 1: a completed/);
+		assert.match(text, /Revive: subagent\(\{ action: "resume"/);
+		assert.doesNotMatch(text, /Async run not found/);
+	});
+
 	it("resume action keeps exact foreground validation errors over async prefix matches", async () => {
 		const base = `exact-invalid-${Date.now()}`;
 		const asyncSession = path.join(tempDir, "async-exact-prefix.jsonl");
