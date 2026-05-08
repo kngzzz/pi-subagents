@@ -93,6 +93,21 @@ describe("buildPiArgs model wiring", () => {
 		assert.ok(args.includes("--model"));
 		assert.ok(args.includes("openai-codex/gpt-5.4-mini:high"));
 	});
+
+	it("uses --thinking when an agent sets thinking without a model override", () => {
+		const { args } = buildPiArgs({
+			baseArgs: ["-p"],
+			task: "hello",
+			sessionEnabled: false,
+			thinking: "low",
+			inheritProjectContext: false,
+			inheritSkills: false,
+		});
+
+		assert.ok(args.includes("--thinking"));
+		assert.ok(args.includes("low"));
+		assert.ok(!args.includes("--model"));
+	});
 });
 
 describe("buildPiArgs system prompt mode wiring", () => {

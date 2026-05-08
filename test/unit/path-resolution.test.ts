@@ -78,8 +78,8 @@ describe("Path resolution for .agents and ~/.agents", () => {
 		assert.strictEqual(agent?.filePath, path.join(agentsDir, "test-agent-1.md"));
 	});
 
-	test("should resolve agents in ~/.agents", () => {
-		const userAgentsDir = path.join(realHomeDir, ".agents");
+	test("should resolve user agents in ~/.agents/agents", () => {
+		const userAgentsDir = path.join(realHomeDir, ".agents", "agents");
 		fs.mkdirSync(userAgentsDir, { recursive: true });
 		fs.writeFileSync(
 			path.join(userAgentsDir, "test-agent-2.md"),

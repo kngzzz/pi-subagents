@@ -38,6 +38,11 @@ const piPackageRoot = resolvePiPackageRoot();
 const jitiCliPath: string | undefined = (() => {
 	const candidates: Array<() => string> = [
 		() => path.join(path.dirname(require.resolve("jiti/package.json")), "lib/jiti-cli.mjs"),
+		() => {
+			const piEntry = fs.realpathSync(process.argv[1]);
+			const piRequire = createRequire(piEntry);
+			return path.join(path.dirname(piRequire.resolve("jiti/package.json")), "lib/jiti-cli.mjs");
+		},
 		() => path.join(path.dirname(require.resolve("@mariozechner/jiti/package.json")), "lib/jiti-cli.mjs"),
 		() => {
 			const piEntry = fs.realpathSync(process.argv[1]);

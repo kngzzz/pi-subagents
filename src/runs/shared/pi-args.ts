@@ -67,6 +67,8 @@ export function buildPiArgs(input: BuildPiArgsInput): BuildPiArgsResult {
 	const modelArg = applyThinkingSuffix(input.model, input.thinking);
 	if (modelArg) {
 		args.push("--model", modelArg);
+	} else if (input.thinking && input.thinking !== "off") {
+		args.push("--thinking", input.thinking);
 	}
 
 	const toolExtensionPaths: string[] = [];

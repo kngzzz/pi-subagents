@@ -724,7 +724,7 @@ const BUILTIN_AGENTS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.u
 
 export function discoverAgents(cwd: string, scope: AgentScope): AgentDiscoveryResult {
 	const userDirOld = path.join(os.homedir(), ".pi", "agent", "agents");
-	const userDirNew = path.join(os.homedir(), ".agents");
+	const userDirNew = path.join(os.homedir(), ".agents", "agents");
 	const { readDirs: projectAgentDirs, preferredDir: projectAgentsDir } = resolveNearestProjectAgentDirs(cwd);
 	const userSettingsPath = getUserAgentSettingsPath();
 	const projectSettingsPath = getProjectAgentSettingsPath(cwd);
@@ -763,7 +763,7 @@ export function discoverAgentsAll(cwd: string): {
 	projectSettingsPath: string | null;
 } {
 	const userDirOld = path.join(os.homedir(), ".pi", "agent", "agents");
-	const userDirNew = path.join(os.homedir(), ".agents");
+	const userDirNew = path.join(os.homedir(), ".agents", "agents");
 	const userChainDir = getUserChainDir();
 	const { readDirs: projectDirs, preferredDir: projectDir } = resolveNearestProjectAgentDirs(cwd);
 	const { readDirs: projectChainDirs, preferredDir: projectChainDir } = resolveNearestProjectChainDirs(cwd);
